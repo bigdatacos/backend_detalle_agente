@@ -1,0 +1,4 @@
+*/credentials.yml
+venv/
+*/logs_main.log
+*/__pycache__/*
