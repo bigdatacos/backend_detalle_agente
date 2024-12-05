@@ -1,5 +1,6 @@
 SELECT DISTINCT
-    candidates.id_number,
+    candidates.id AS id_candidates,
+    candidates.id_number as Cedula,
     UPPER(CONCAT(candidates.first_name,
                     ' ',
                     candidates.middle_name,
