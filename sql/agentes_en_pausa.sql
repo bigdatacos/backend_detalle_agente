@@ -1,16 +1,16 @@
 SELECT 
-    candidates.id,
+    candidates.id as id_candidates,
     concat(ciu.date_start, " ", ciu.hour_start) as fecha_inicio_pausa,
 		
     ciu.date_end,
     ciu.hour_end,
-    CONCAT(candidates.first_name,
+    UPPER(CONCAT(candidates.first_name,
             ' ',
             candidates.middle_name,
             ' ',
             candidates.last_name,
             ' ',
-            candidates.second_last_name) AS Nombre,
+            candidates.second_last_name)) AS Nombre,
     candidates.id_number AS Cedula,
     schedule_type.name AS Estado
 FROM
