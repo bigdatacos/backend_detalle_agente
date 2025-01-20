@@ -1,8 +1,9 @@
 SELECT 
     calls.user_id,
     calls.start,
-    operations.name as Campana,
-    campaigns.name as Skill
+    calls.phone_number as Telefono,
+    operations.name AS Campana,
+    campaigns.name AS Skill
 FROM
     `miosv2-phone`.calls calls
         LEFT JOIN
@@ -14,3 +15,10 @@ WHERE
         AND calls.user_id IS NOT NULL
         AND calls.state_id = 1
         AND calls.type_id = 1
+        AND calls.id NOT IN (SELECT 
+            call_id
+        FROM
+            `miosv2-phone`.transfers
+        WHERE
+            DATE(created_at) = CURDATE()
+        ORDER BY id DESC);

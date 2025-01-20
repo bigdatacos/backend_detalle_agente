@@ -1,13 +1,20 @@
 SELECT 
-    t1.user_id, t1.end as start
+    t1.user_id, 
+    t1.end AS start
 FROM
     `miosv2-phone`.calls t1
-WHERE
-    t1.start = (SELECT 
-            MAX(t2.start)
-        FROM
-            `miosv2-phone`.calls t2
-        WHERE
-            t2.user_id = t1.user_id
-                AND t2.end IS NOT NULL
-                AND DATE(t2.start) = CURDATE());
+JOIN (
+    SELECT 
+        user_id,
+        MAX(start) AS max_start
+    FROM
+        `miosv2-phone`.calls
+    WHERE
+        end IS NOT NULL
+        AND DATE(start) = CURDATE()
+    GROUP BY 
+        user_id
+) mst
+ON 
+    t1.user_id = mst.user_id
+    AND t1.start = mst.max_start;

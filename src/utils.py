@@ -10,7 +10,7 @@ from urllib.parse import quote
 import pandas as pd
 from pandas import DataFrame
 from datetime import datetime
-import time
+import traceback
 import gc
 
 act_dir = os.path.dirname(os.path.abspath(__file__))
@@ -83,7 +83,7 @@ class Engine_sql_db:
         self.port = port
 
     def get_engine(self) -> Engine:
-        return sa.create_engine(f"mysql+pymysql://{self.user}:{quote(self.passw)}@{self.host}:{self.port}/{self.dat}")
+        return sa.create_engine(f"mysql+pymysql://{self.user}:{quote(self.passw)}@{self.host}:{self.port}/{self.dat}", isolation_level="SERIALIZABLE")
 
     def get_connect(self) -> Connection:
         return self.get_engine().connect()
@@ -108,22 +108,27 @@ def extract_sql():
         engine_aws = Engine_sql(**source3)
         # engine_aws = Engine_sql_aws(**source5)
         with engine_176.get_connect() as conn:
+            # logging.info(f"Conexion 176 {datetime.now()}")
             df_agentes_conectados = pd.read_sql_query(
                 import_query(os.path.join(proyect_dir, "sql", "agentes_conectados.sql")), conn)
+            # logging.info(f"df_agentes_conectados 176 {datetime.now()}")
             df_agentes_conectados.drop_duplicates(subset=["Cedula_usersv2"])
             df_agentes_en_llamada = pd.read_sql_query(
                 import_query(os.path.join(proyect_dir, "sql", "agentes_en_llamada.sql")), conn)
+            # logging.info(f"df_agentes_en_llamada 176 {datetime.now()}")
             df_usersv2 = pd.read_sql_query(
                 import_query(os.path.join(proyect_dir, "sql", "usersv2.sql")), conn)
+            # logging.info(f"df_usersv2 176 {datetime.now()}")
             df_ultima_gestion = pd.read_sql_query(
                 import_query(os.path.join(proyect_dir, "sql", "ultima_gestion.sql")), conn)
+            # logging.info(f"df_ultima_gestion 176 {datetime.now()}")
             df_operation = pd.read_sql_query(
                 import_query(os.path.join(proyect_dir, "sql", "operation.sql")), conn)
+            # logging.info(f"df_operation 176 {datetime.now()}")
         with engine_aws.get_connect() as conn:
+            # logging.info(f"Conexion aws {datetime.now()}")
             df_agentes_en_pausa = pd.read_sql_query(
                 import_query(os.path.join(proyect_dir, "sql", "agentes_en_pausa.sql")), conn)
-            df_agentes_programados = pd.read_sql_query(
-                import_query(os.path.join(proyect_dir, "sql", "agentes_programados.sql")), conn)
             df_candidates = pd.read_sql_query(
                 import_query(os.path.join(proyect_dir, "sql", "candidates.sql")), conn)
 
@@ -132,7 +137,8 @@ def extract_sql():
         gc.collect()
         return df_agentes_conectados, df_agentes_en_llamada, df_usersv2, df_agentes_en_pausa, df_ultima_gestion, df_operation, df_candidates
     except Exception as e:
-        logging.info(e)
+        logging.error("Ocurrió un error: %s", e)
+        logging.error("Detalles del stack trace:\n%s", traceback.format_exc())
 
 
 def cards(df_agentes_conectados, df_agentes_en_llamada, _, df_agentes_en_pausa):
@@ -165,11 +171,12 @@ def details(df_agentes_conectados, df_agentes_en_llamada,
                            left_on="rrhh_id", right_on="id_candidates", how="left")
 
         df_join["Estado"] = "En llamada"
+        df_join["start"] = pd.to_datetime(df_join["start"], errors="coerce")
         df_join["Tiempo"] = (
             datetime.now()-df_join["start"]).dt.round('s').apply(lambda x: str(x).split(" ")[-1])
 
         df_join = df_join[["Cedula", "Nombre", "Usuario", "Campana", "Skill",
-                           "extension", "Estado", "Tiempo"]]
+                           "extension", "Estado", "Telefono", "Tiempo"]]
 
         if len(df_agentes_en_pausa) > 0:
 
@@ -184,11 +191,16 @@ def details(df_agentes_conectados, df_agentes_en_llamada,
 
             df_agentes_en_pausa["Skill"] = ""
 
+            df_agentes_en_pausa["fecha_inicio_pausa"] = pd.to_datetime(
+                df_agentes_en_pausa["fecha_inicio_pausa"], errors="coerce")
+
             df_agentes_en_pausa["Tiempo"] = (
                 datetime.now()-df_agentes_en_pausa["fecha_inicio_pausa"]).dt.round('s').apply(lambda x: str(x).split(" ")[-1])
 
+            df_agentes_en_pausa["Telefono"] = "-"
+
             df_agentes_en_pausa = df_agentes_en_pausa[["Cedula", "Nombre", "Usuario", "Campana", "Skill",
-                                                       "extension", "Estado", "Tiempo"]]
+                                                       "extension", "Estado", "Telefono", "Tiempo"]]
 
             df_join = pd.concat([df_join, df_agentes_en_pausa], axis=0)
 
@@ -206,6 +218,7 @@ def details(df_agentes_conectados, df_agentes_en_llamada,
 
         df_agentes_disponibles["Estado"] = "Disponible"
         df_agentes_disponibles["Skill"] = ""
+        df_agentes_disponibles["Telefono"] = "-"
 
         df_agentes_disponibles["Tiempo"] = (
             datetime.now()-df_agentes_disponibles["start"])
@@ -219,28 +232,37 @@ def details(df_agentes_conectados, df_agentes_en_llamada,
             's').apply(lambda x: str(x).split(" ")[-1])
 
         df_agentes_disponibles = df_agentes_disponibles[["Cedula", "Nombre", "Usuario", "Campana", "Skill",
-                                                         "extension", "Estado", "Tiempo"]]
+                                                         "extension", "Estado", "Telefono", "Tiempo"]]
 
         df_join = df_join[~df_join["Cedula"].isin(
             ["123456789098", "1007469412", "1023965668", "1032399970"])]
 
         df_join = pd.concat([df_join, df_agentes_disponibles], axis=0)
 
-        logging.info(datetime.now())
+        df_join = df_join.drop_duplicates(
+            subset="Cedula", keep="first")
 
         return df_join
 
     except Exception as e:
-        logging.info(e)
+        logging.error("Ocurrió un error: %s", e)
+        logging.error("Detalles del stack trace:\n%s", traceback.format_exc())
 
 
 def load(df: DataFrame, table: str) -> None:
     try:
         engine_68 = Engine_sql_db(**source4)
-        with engine_68.get_connect() as conn:
-            df.to_sql(table, con=conn,
-                      if_exists="replace", index=False)
+        with engine_68.get_connect().execution_options(isolation_level="SERIALIZABLE") as conn:
+            with conn.begin():
+                conn.execute(text(f"LOCK TABLES {table} WRITE"))
+                conn.execute(text(f"TRUNCATE {table}"))
+                df.to_sql(table, con=conn,
+                          if_exists="append", index=False)
+
+                conn.execute(text("UNLOCK TABLES"))
+
         del engine_68
         gc.collect()
     except Exception as e:
-        logging.info(e)
+        logging.error("Ocurrió un error: %s", e)
+        logging.error("Detalles del stack trace:\n%s", traceback.format_exc())
