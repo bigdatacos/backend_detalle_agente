@@ -141,7 +141,10 @@ def extract_sql():
         logging.error("Detalles del stack trace:\n%s", traceback.format_exc())
 
 
-def cards(df_agentes_conectados, df_agentes_en_llamada, _, df_agentes_en_pausa):
+def cards(df_agentes_conectados, df_agentes_en_llamada, df_usersv2, df_agentes_en_pausa):
+
+    df_agentes_conectados = df_agentes_conectados[~df_agentes_conectados["Cedula_usersv2"].isin(
+        df_agentes_en_pausa["Cedula"])]
 
     agentes_disponibles = len(df_agentes_conectados) - \
         len(df_agentes_en_llamada)
