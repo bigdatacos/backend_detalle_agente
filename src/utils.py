@@ -143,9 +143,6 @@ def extract_sql():
 
 def cards(df_agentes_conectados, df_agentes_en_llamada, df_usersv2, df_agentes_en_pausa):
 
-    df_agentes_conectados = df_agentes_conectados[~df_agentes_conectados["Cedula_usersv2"].isin(
-        df_agentes_en_pausa["Cedula"])]
-
     agentes_disponibles = len(df_agentes_conectados) - \
         len(df_agentes_en_llamada)
 
@@ -177,6 +174,12 @@ def details(df_agentes_conectados, df_agentes_en_llamada,
         df_join["start"] = pd.to_datetime(df_join["start"], errors="coerce")
         df_join["Tiempo"] = (
             datetime.now()-df_join["start"]).dt.round('s').apply(lambda x: str(x).split(" ")[-1])
+
+        for index, row in df_join.iterrows():
+            if "+" in str(row["Tiempo"]):
+                df_join.at[index, "Tiempo"] = "00:00:00"
+            else:
+                continue
 
         df_join = df_join[["Cedula", "Nombre", "Usuario", "Campana", "Skill",
                            "extension", "Estado", "Telefono", "Tiempo"]]
@@ -222,7 +225,8 @@ def details(df_agentes_conectados, df_agentes_en_llamada,
         df_agentes_disponibles["Estado"] = "Disponible"
         df_agentes_disponibles["Skill"] = ""
         df_agentes_disponibles["Telefono"] = "-"
-
+        df_agentes_disponibles["start"] = pd.to_datetime(
+            df_agentes_disponibles["start"])
         df_agentes_disponibles["Tiempo"] = (
             datetime.now()-df_agentes_disponibles["start"])
 

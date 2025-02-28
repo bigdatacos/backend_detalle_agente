@@ -3,6 +3,6 @@ SELECT
 FROM
     `miosv2-phone`.usersv2
 WHERE
-    extension IS NOT NULL AND TRIM(extension) != '' 
+    (extension IS NOT NULL AND TRIM(extension) != '') AND available = 1 
 ORDER BY
     id DESC;

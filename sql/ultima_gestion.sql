@@ -1,20 +1,22 @@
 SELECT 
-    t1.user_id, 
-    t1.end AS start
+    mst.user_id, MAX(mst.max_end) AS start
 FROM
-    `miosv2-phone`.calls t1
-JOIN (
-    SELECT 
-        user_id,
-        MAX(start) AS max_start
+    (SELECT 
+        transfers.user_id, MAX(calls.end) AS max_end
+    FROM
+        `miosv2-phone`.transfers transfers
+    LEFT JOIN `miosv2-phone`.calls calls ON transfers.call_id = calls.id
+    WHERE
+        calls.end IS NOT NULL
+            AND DATE(calls.end) = CURDATE()
+            AND transfers.user_id IS NOT NULL
+    GROUP BY transfers.user_id UNION SELECT 
+        user_id, MAX(end) AS max_end
     FROM
         `miosv2-phone`.calls
     WHERE
         end IS NOT NULL
-        AND DATE(start) = CURDATE()
-    GROUP BY 
-        user_id
-) mst
-ON 
-    t1.user_id = mst.user_id
-    AND t1.start = mst.max_start;
+            AND DATE(end) = CURDATE()
+            AND user_id IS NOT NULL
+    GROUP BY user_id) mst
+GROUP BY mst.user_id;
