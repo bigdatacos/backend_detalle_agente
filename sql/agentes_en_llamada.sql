@@ -13,15 +13,7 @@ FROM
 WHERE
     DATE(start) = CURDATE() AND end IS NULL
         AND calls.user_id IS NOT NULL
-        AND calls.state_id = 1
-        AND calls.type_id = 1
-        AND calls.id NOT IN (SELECT 
-            call_id
-        FROM
-            `miosv2-phone`.transfers
-        WHERE
-            DATE(created_at) = CURDATE()
-        ORDER BY id DESC)
+        AND calls.state_id != 3
         union SELECT 
     transfers.user_id,
     calls.start,
